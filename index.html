@@ -1,0 +1,103 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style type="text/css">
+*{
+    line-height:1.6;
+    font-size:18px;
+    color:#eee;
+    background-color:#222;
+    margin: 0.5ex;
+}
+</style>
+</head>
+<body>
+    
+<div>    
+    <button id="swap-button">Swap</button>
+    <span id="error-output"></span>
+</div>
+
+<div>
+    <input type="text" id="under" name="under" />
+    <label id="under-label" for="under">Under</label>
+</div>
+
+<div>
+    <input type="text" id="over" name="over" />
+    <label id="over-label" for="over">Over</label>
+</div>
+
+<div>
+    <canvas id="canvas" width=200 height=200></canvas>
+</div>
+</body>
+<script>
+
+const errorOutput = document.getElementById("error-output");
+
+const underInput = document.getElementById("under");
+if (!underInput.value) {
+    underInput.value="#d077ed"
+}
+const underLabel = document.getElementById("under-label");
+underLabel.style.color = underInput.value;
+
+const overInput = document.getElementById("over");
+if (!overInput.value) {
+    overInput.value="#befa11"
+}
+const overLabel = document.getElementById("over-label");
+overLabel.style.color = overInput.value;
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+ctx.globalCompositeOperation = "multiply";
+
+const errorColour = "#00000000";
+
+const onRender = () => {
+    errorOutput.innerText = ""
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    underLabel.style.color = ""
+    underLabel.style.color = underInput.value;
+    // Ends up "" if not a valid colour
+    if (underLabel.style.color) {
+        ctx.fillStyle = underLabel.style.color;
+    } else {
+        errorOutput.innerText += "Under colour is invalid. ";
+        ctx.fillStyle = errorColour;
+    }
+    ctx.fillRect(10, 10, 100, 100);
+    
+    overLabel.style.color = ""
+    overLabel.style.color = overInput.value;
+    // Ends up "" if not a valid colour
+    if (overLabel.style.color) {
+        ctx.fillStyle = overLabel.style.color;
+    } else {
+        errorOutput.innerText += "Over colour is invalid. ";
+        ctx.fillStyle = errorColour;
+    }
+    ctx.fillRect(60, 60, 100, 100);
+}
+
+underInput.oninput = onRender;
+overInput.oninput = onRender;
+
+const swapButton = document.getElementById("swap-button");
+swapButton.onclick = () => {
+    const temp = underInput.value;
+    underInput.value = overInput.value;
+    overInput.value = temp;
+    
+    onRender();
+};
+
+onRender()
+
+</script>
+</html>
