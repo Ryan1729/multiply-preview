@@ -10,11 +10,14 @@
     background-color:#222;
     margin: 0.5ex;
 }
+*:disabled {
+    color:#888;
+}
 </style>
 </head>
 <body>
-    
-<div>    
+
+<div>
     <button id="swap-button">Swap</button>
     <span id="error-output"></span>
 </div>
@@ -27,6 +30,11 @@
 <div>
     <input type="text" id="over" name="over" />
     <label id="over-label" for="over">Over</label>
+</div>
+
+<div>
+    <input type="text" id="blended" name="blended" disabled />
+    <label id="blended-label" for="blended">Blended</label>
 </div>
 
 <div>
@@ -51,6 +59,10 @@ if (!overInput.value) {
 const overLabel = document.getElementById("over-label");
 overLabel.style.color = overInput.value;
 
+const blendedInput = document.getElementById("blended");
+const blendedLabel = document.getElementById("blended-label");
+blendedLabel.style.color = blendedInput.value;
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -72,7 +84,7 @@ const onRender = () => {
         ctx.fillStyle = errorColour;
     }
     ctx.fillRect(10, 10, 100, 100);
-    
+
     overLabel.style.color = ""
     overLabel.style.color = overInput.value;
     // Ends up "" if not a valid colour
@@ -83,6 +95,10 @@ const onRender = () => {
         ctx.fillStyle = errorColour;
     }
     ctx.fillRect(60, 60, 100, 100);
+
+    const blendedColour =  ctx.getImageData(60, 60, 1, 1).data
+    blendedInput.value = "#" + (blendedColour[0].toString(16)) + (blendedColour[1].toString(16)) + (blendedColour[2].toString(16));
+    blendedLabel.style.color = blendedInput.value;
 }
 
 underInput.oninput = onRender;
@@ -93,7 +109,7 @@ swapButton.onclick = () => {
     const temp = underInput.value;
     underInput.value = overInput.value;
     overInput.value = temp;
-    
+
     onRender();
 };
 
