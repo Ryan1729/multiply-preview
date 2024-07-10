@@ -70,6 +70,15 @@ ctx.globalCompositeOperation = "multiply";
 
 const errorColour = "#00000000";
 
+const byteAsHex = (n) => {
+    let s = n.toString(16);
+
+    while (s.length < 2) {
+        s = "0" + s;
+    }
+    return s
+}
+
 const onRender = () => {
     errorOutput.innerText = ""
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -97,7 +106,7 @@ const onRender = () => {
     ctx.fillRect(60, 60, 100, 100);
 
     const blendedColour =  ctx.getImageData(60, 60, 1, 1).data
-    blendedInput.value = "#" + (blendedColour[0].toString(16)) + (blendedColour[1].toString(16)) + (blendedColour[2].toString(16));
+    blendedInput.value = "#" + (byteAsHex(blendedColour[0])) + (byteAsHex(blendedColour[1])) + (byteAsHex(blendedColour[2]));
     blendedLabel.style.color = blendedInput.value;
 }
 
