@@ -13,6 +13,9 @@
 *:disabled {
     color:#888;
 }
+#over-label {
+    margin-right: 2em;
+}
 </style>
 </head>
 <body>
@@ -30,11 +33,15 @@
 <div>
     <input type="text" id="over" name="over" />
     <label id="over-label" for="over">Over</label>
+    <input type="radio" id="over-radio" name="locked" value="over-radio" autocomplete="off" checked />
+    <label id="over-radio-label" for="over-radio">Input</label>
 </div>
 
 <div>
     <input type="text" id="blended" name="blended" disabled />
     <label id="blended-label" for="blended">Blended</label>
+    <input type="radio" id="blended-radio" name="locked" value="blended-radio" autocomplete="off" />
+    <label id="blended-radio-label" for="blended-radio">Output</label>
 </div>
 
 <div>
@@ -42,6 +49,92 @@
 </div>
 </body>
 <script>
+"use strict";
+
+const byteAsHex = (n) => {
+    let s = n.toString(16);
+
+    while (s.length < 2) {
+        s = "0" + s;
+    }
+    return s
+}
+
+const threeBytesToHashHex = (r, g, b) => {
+    return "#" + (byteAsHex(r)) + (byteAsHex(g)) + (byteAsHex(b))
+}
+
+
+const multiplyBlend = (a, b) => {
+    return Math.ceil(((a / 256) * (b / 256)) * 256);
+};
+
+// TODO support alpha
+const HEX_REGEX = /#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i;
+
+const solveForOver = ({under, blended}) => {
+    let parseIndex;
+
+    const underMatch = under.match(HEX_REGEX)
+    if (underMatch === null) {
+        return {error: "Under was not of the form of # then 6 hex digits"}
+    }
+
+    const blendedMatch = blended.match(HEX_REGEX)
+    if (blendedMatch === null) {
+        return {error: "Blended was not of the form of # then 6 hex digits"}
+    }
+
+    const uR = parseInt(underMatch[1], 16);
+    const uG = parseInt(underMatch[2], 16);
+    const uB = parseInt(underMatch[3], 16);
+
+    const bR = parseInt(blendedMatch[1], 16);
+    const bG = parseInt(blendedMatch[2], 16);
+    const bB = parseInt(blendedMatch[3], 16);
+
+    let oR, oG, oB;
+
+    let candidate;
+
+    for (candidate = 0; candidate < 256; candidate += 1) {
+        let guess = multiplyBlend(uR, candidate);
+
+        if (guess === bR) {
+            oR = candidate;
+            break
+        }
+    }
+    if (candidate >= 256) {
+        return {error: "Could not find match for red :("}
+    }
+
+    for (candidate = 0; candidate < 256; candidate += 1) {
+        let guess = multiplyBlend(uG, candidate);
+
+        if (guess === bG) {
+            oG = candidate;
+            break
+        }
+    }
+    if (candidate >= 256) {
+        return {error: "Could not find match for green :("}
+    }
+
+    for (candidate = 0; candidate < 256; candidate += 1) {
+        let guess = multiplyBlend(uB, candidate);
+
+        if (guess === bB) {
+            oB = candidate;
+            break
+        }
+    }
+    if (candidate >= 256) {
+        return {error: "Could not find match for blue :("}
+    }
+
+    return {result: threeBytesToHashHex(oR, oG, oB)}
+};
 
 const errorOutput = document.getElementById("error-output");
 
@@ -59,9 +152,45 @@ if (!overInput.value) {
 const overLabel = document.getElementById("over-label");
 overLabel.style.color = overInput.value;
 
+const overRadio = document.getElementById("over-radio");
+const overRadioLabel = document.getElementById("over-radio-label");
+
 const blendedInput = document.getElementById("blended");
 const blendedLabel = document.getElementById("blended-label");
 blendedLabel.style.color = blendedInput.value;
+
+const blendedRadio = document.getElementById("blended-radio");
+const blendedRadioLabel = document.getElementById("blended-radio-label");
+
+// The mode indicates which of "over" or "blended" is enabled.
+let inputMode = "over-radio";
+
+const radioListener = (event) => {
+    switch (event.target.value) {
+        default:
+            event.target.value = "over-radio";
+            // fallthrough
+        case "over-radio":
+            overRadioLabel.textContent = "Input";
+            blendedRadioLabel.textContent = "Output";
+
+            overInput.disabled = false;
+            blendedInput.disabled = true;
+        break;
+        case "blended-radio":
+            overRadioLabel.textContent = "Output";
+            blendedRadioLabel.textContent = "Input";
+
+            overInput.disabled = true;
+            blendedInput.disabled = false;
+        break;
+    }
+
+    inputMode = event.target.value;
+};
+
+overRadio.addEventListener("change", radioListener);
+blendedRadio.addEventListener("change", radioListener);
 
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -70,14 +199,11 @@ ctx.globalCompositeOperation = "multiply";
 
 const errorColour = "#00000000";
 
-const byteAsHex = (n) => {
-    let s = n.toString(16);
+const OVER_X = 60;
+const OVER_Y = 60;
 
-    while (s.length < 2) {
-        s = "0" + s;
-    }
-    return s
-}
+const W = 100;
+const H = 100;
 
 const onRender = () => {
     errorOutput.innerText = ""
@@ -92,26 +218,70 @@ const onRender = () => {
         errorOutput.innerText += "Under colour is invalid. ";
         ctx.fillStyle = errorColour;
     }
-    ctx.fillRect(10, 10, 100, 100);
+    ctx.fillRect(10, 10, W, H);
 
-    overLabel.style.color = ""
-    overLabel.style.color = overInput.value;
-    // Ends up "" if not a valid colour
-    if (overLabel.style.color) {
-        ctx.fillStyle = overLabel.style.color;
-    } else {
-        errorOutput.innerText += "Over colour is invalid. ";
-        ctx.fillStyle = errorColour;
+    switch (inputMode) {
+        default:
+            // fallthrough
+        case "over-radio":
+            //
+            // Just directly blend the colour
+            //
+            overLabel.style.color = overInput.value;
+            // Ends up "" if not a valid colour
+            if (overLabel.style.color) {
+                ctx.fillStyle = overLabel.style.color;
+            } else {
+                errorOutput.innerText += "Over colour is invalid. ";
+                ctx.fillStyle = errorColour;
+            }
+            ctx.fillRect(OVER_X, OVER_Y, W, H);
+        break;
+        case "blended-radio":
+            //
+            // Attempt to solve for the over value that would produce
+            // the given blended value
+            //
+            const targetBlendString = blendedInput.value;
+
+            const solveResult = solveForOver({
+                under: underInput.value,
+                blended: blendedInput.value
+            });
+
+            if (solveResult.result === undefined) {
+                errorOutput.innerText += solveResult.error + " ";
+                ctx.fillStyle = errorColour;
+                return
+            }
+
+            overInput.value = solveResult.result
+            overLabel.style.color = overInput.value;
+            // Ends up "" if not a valid colour
+            if (overLabel.style.color) {
+                ctx.fillStyle = overLabel.style.color;
+            } else {
+                errorOutput.innerText += "Over colour is invalid. ";
+                ctx.fillStyle = errorColour;
+            }
+            ctx.fillRect(OVER_X, OVER_Y, W, H);
+
+            // Shouldn't actually happen, but just in case
+            if (blendedInput.value !== targetBlendString) {
+                errorOutput.innerText += "Failed to match blend target! Expected " + targetBlendString + " got " + blendedInput.value + " ";
+                ctx.fillStyle = errorColour;
+            }
+        break;
     }
-    ctx.fillRect(60, 60, 100, 100);
 
-    const blendedColour =  ctx.getImageData(60, 60, 1, 1).data
-    blendedInput.value = "#" + (byteAsHex(blendedColour[0])) + (byteAsHex(blendedColour[1])) + (byteAsHex(blendedColour[2]));
+    const blendedColour =  ctx.getImageData(OVER_X, OVER_Y, 1, 1).data
+    blendedInput.value = threeBytesToHashHex(blendedColour[0], blendedColour[1], blendedColour[2])
     blendedLabel.style.color = blendedInput.value;
 }
 
 underInput.oninput = onRender;
 overInput.oninput = onRender;
+blendedInput.oninput = onRender;
 
 const swapButton = document.getElementById("swap-button");
 swapButton.onclick = () => {
