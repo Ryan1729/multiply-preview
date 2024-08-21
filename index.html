@@ -69,35 +69,92 @@ const multiplyBlend = (a, b) => {
     return Math.ceil(((a / 256) * (b / 256)) * 256);
 };
 
-// TODO support alpha
-const HEX_REGEX = /#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i;
+const HEX_3_REGEX = /#([0-9a-f])([0-9a-f])([0-9a-f])$/i;
+const HEX_6_REGEX = /#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i;
+const HEX_8_REGEX = /#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i;
 
 const solveForOver = ({under, blended}) => {
     let parseIndex;
 
-    const underMatch = under.match(HEX_REGEX)
-    if (underMatch === null) {
-        return {error: "Under was not of the form of # then 6 hex digits"}
+    let uR;
+    let uG;
+    let uB;
+    let uA;
+
+    let underMatch = under.match(HEX_3_REGEX)
+    if (underMatch !== null) {
+        let r = parseInt(underMatch[1], 16);
+        let g = parseInt(underMatch[2], 16);
+        let b = parseInt(underMatch[3], 16);
+
+        uR = (r << 4) | r;
+        uG = (g << 4) | g;
+        uB = (b << 4) | b;
+        uA = 0xFF;
+    } else {
+        underMatch = under.match(HEX_6_REGEX);
+
+        if (underMatch !== null) {
+            uR = parseInt(underMatch[1], 16);
+            uG = parseInt(underMatch[2], 16);
+            uB = parseInt(underMatch[3], 16);
+            uA = 0xFF;
+        } else {
+            underMatch = under.match(HEX_8_REGEX);
+
+            if (underMatch !== null) {
+                uR = parseInt(underMatch[1], 16);
+                uG = parseInt(underMatch[2], 16);
+                uB = parseInt(underMatch[3], 16);
+                uA = parseInt(underMatch[4], 16);;
+            } else {
+                return {error: "Under was not any of #nnn, #nnnnnn or #nnnnnnnn"}
+            }
+        }
     }
 
-    const blendedMatch = blended.match(HEX_REGEX)
-    if (blendedMatch === null) {
-        return {error: "Blended was not of the form of # then 6 hex digits"}
+    let bR;
+    let bG;
+    let bB;
+    let bA;
+
+    let blendedMatch = blended.match(HEX_3_REGEX)
+    if (blendedMatch !== null) {
+        let r = parseInt(blendedMatch[1], 16);
+        let g = parseInt(blendedMatch[2], 16);
+        let b = parseInt(blendedMatch[3], 16);
+
+        bR = (r << 4) | r;
+        bG = (g << 4) | g;
+        bB = (b << 4) | b;
+        bA = 0xFF;
+    } else {
+        blendedMatch = blended.match(HEX_6_REGEX);
+
+        if (blendedMatch !== null) {
+            bR = parseInt(blendedMatch[1], 16);
+            bG = parseInt(blendedMatch[2], 16);
+            bB = parseInt(blendedMatch[3], 16);
+            bA = 0xFF;
+        } else {
+            blendedMatch = blended.match(HEX_8_REGEX);
+
+            if (blendedMatch !== null) {
+                bR = parseInt(blendedMatch[1], 16);
+                bG = parseInt(blendedMatch[2], 16);
+                bB = parseInt(blendedMatch[3], 16);
+                bA = parseInt(blendedMatch[4], 16);;
+            } else {
+                return {error: "Blended was not any of #nnn, #nnnnnn or #nnnnnnnn"}
+            }
+        }
     }
 
-    const uR = parseInt(underMatch[1], 16);
-    const uG = parseInt(underMatch[2], 16);
-    const uB = parseInt(underMatch[3], 16);
-
-    const bR = parseInt(blendedMatch[1], 16);
-    const bG = parseInt(blendedMatch[2], 16);
-    const bB = parseInt(blendedMatch[3], 16);
-
-    let oR, oG, oB;
+    let oR, oG, oB, oA;
 
     let candidate;
 
-    for (candidate = 0; candidate < 256; candidate += 1) {
+    for (candidate = 255; candidate >= 0; candidate -= 1) {
         let guess = multiplyBlend(uR, candidate);
 
         if (guess === bR) {
@@ -105,11 +162,11 @@ const solveForOver = ({under, blended}) => {
             break
         }
     }
-    if (candidate >= 256) {
-        return {error: "Could not find match for red :("}
+    if (candidate < 0) {
+        return {error: "Could not find match for red :( " + byteAsHex(bR) + " > " + byteAsHex(uR)}
     }
 
-    for (candidate = 0; candidate < 256; candidate += 1) {
+    for (candidate = 255; candidate >= 0; candidate -= 1) {
         let guess = multiplyBlend(uG, candidate);
 
         if (guess === bG) {
@@ -117,11 +174,11 @@ const solveForOver = ({under, blended}) => {
             break
         }
     }
-    if (candidate >= 256) {
-        return {error: "Could not find match for green :("}
+    if (candidate < 0) {
+        return {error: "Could not find match for green :( " + byteAsHex(bG) + " > " + byteAsHex(uG)}
     }
 
-    for (candidate = 0; candidate < 256; candidate += 1) {
+    for (candidate = 255; candidate >= 0; candidate -= 1) {
         let guess = multiplyBlend(uB, candidate);
 
         if (guess === bB) {
@@ -129,11 +186,23 @@ const solveForOver = ({under, blended}) => {
             break
         }
     }
-    if (candidate >= 256) {
-        return {error: "Could not find match for blue :("}
+    if (candidate < 0) {
+        return {error: "Could not find match for blue :( " + byteAsHex(bB) + " > " + byteAsHex(uB)}
     }
 
-    return {result: threeBytesToHashHex(oR, oG, oB)}
+    for (candidate = 255; candidate >= 0; candidate -= 1) {
+        let guess = multiplyBlend(uA, candidate);
+
+        if (guess === bA) {
+            oA = candidate;
+            break
+        }
+    }
+    if (candidate < 0) {
+        return {error: "Could not find match for alpha :( " + byteAsHex(bA) + " > " + byteAsHex(uA)}
+    }
+
+    return {result: threeBytesToHashHex(oR, oG, oB) + (oA >= 0xFF ? "": byteAsHex(oA))}
 };
 
 const errorOutput = document.getElementById("error-output");
